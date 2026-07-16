@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ArcPay | Freelancer Payments in USDC</title>
-    <link rel="icon" type="image/png" href="https://cdn.jsdelivr.gh/Perorworld/arc-pay@main/arcpaylogobg.png">
+    <link rel="icon" type="image/png" href="https://cdn.jsdelivr.net/gh/Perorworld/arc-pay@main/arcpaylogobg.png">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.7.0/ethers.umd.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
     <style>
@@ -92,7 +92,6 @@
         input:focus, select:focus, textarea:focus { border-color: var(--accent-dim); }
         select option { background: var(--surface); }
 
-        /* Currency selector grid */
         .currency-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 16px; }
         .currency-btn { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 14px 8px; border-radius: 12px; border: 2px solid var(--border); background: var(--bg2); cursor: pointer; transition: all 0.2s; }
         .currency-btn:hover { border-color: var(--accent-dim); }
@@ -102,7 +101,6 @@
         .currency-tag { font-size: 8px; color: var(--gold); font-family: 'JetBrains Mono', monospace; }
         .currency-tag.native { color: var(--arc-green); }
 
-        /* Swap UI */
         .swap-box { background: var(--bg2); border: 1px solid var(--border); border-radius: 12px; padding: 16px; margin-bottom: 12px; }
         .swap-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
         .swap-input { background: transparent; border: none; font-size: 24px; font-weight: 700; color: var(--text); outline: none; width: 100%; font-family: 'JetBrains Mono', monospace; }
@@ -137,11 +135,6 @@
         .feature-title { font-size: 12px; font-weight: 700; margin-bottom: 4px; }
         .feature-desc { font-size: 11px; color: var(--muted); line-height: 1.5; }
 
-        /* SWAP UPGRADE */
-        .chain-icon { font-size: 24px; }
-        .chain-name { font-size: 11px; font-weight: 700; font-family: 'JetBrains Mono', monospace; }
-        .chain-sub { font-size: 9px; color: var(--muted); font-family: 'JetBrains Mono', monospace; }
-
         .route-preview { background: var(--bg2); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; margin-bottom: 16px; }
         .route-row { display: flex; justify-content: space-between; align-items: center; font-size: 12px; margin-bottom: 6px; }
         .route-row:last-child { margin-bottom: 0; }
@@ -149,17 +142,9 @@
         .route-value { color: var(--text); font-weight: 600; font-family: 'JetBrains Mono', monospace; }
         .route-value.green { color: var(--arc-green); }
 
-        .provider-row { display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; }
         .provider-btn { flex: 1; min-width: 80px; padding: 10px; border-radius: 8px; border: 1px solid var(--border); background: var(--bg2); cursor: pointer; text-align: center; font-size: 11px; font-family: 'JetBrains Mono', monospace; color: var(--muted); transition: all 0.2s; }
         .provider-btn:hover { border-color: var(--accent-dim); color: var(--text); }
         .provider-btn.selected { border-color: var(--accent); color: var(--accent); background: rgba(16,185,129,0.06); }
-        .provider-name { font-weight: 700; margin-bottom: 2px; }
-        .provider-fee { font-size: 9px; color: var(--muted); }
-
-        .step-row { display: flex; gap: 10px; align-items: flex-start; margin-bottom: 12px; }
-        .step-num { width: 24px; height: 24px; border-radius: 50%; background: rgba(16,185,129,0.15); border: 1px solid rgba(16,185,129,0.3); display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; color: var(--accent); flex-shrink: 0; font-family: 'JetBrains Mono', monospace; }
-        .step-content { font-size: 12px; color: var(--muted); line-height: 1.6; }
-        .step-content strong { color: var(--text); }
 
         footer { border-top: 1px solid var(--border); padding: 20px 24px; text-align: center; font-size: 12px; color: var(--muted); font-family: 'JetBrains Mono', monospace; }
     </style>
@@ -257,7 +242,7 @@
             <label style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;display:block">You Pay</label>
             <div class="swap-row">
                 <input type="number" class="swap-input" id="swap-from-amount" placeholder="0.0" oninput="estimateRealSwap()" />
-                <select class="swap-select" id="swap-from-token" onchange="estimateRealSwap();loadSwapBalances()">
+                <select class="swap-select" id="swap-from-token" onchange="onSwapTokenChange()">
                     <option value="USDC" selected>USDC</option>
                     <option value="EURC">EURC</option>
                 </select>
@@ -276,6 +261,7 @@
                     <option value="USDC">USDC</option>
                 </select>
             </div>
+            <div class="swap-balance" style="margin-top:6px;">Arc Balance: <span id="swap-to-balance">—</span></div>
             <div style="margin-top:6px">
                 <div class="swap-balance" id="swap-rate">Rate: Calculating real pool reserves…</div>
             </div>
@@ -307,19 +293,19 @@
     <div class="card">
         <div class="card-title">📥 Receive Payments in Arc USDC</div>
         <div class="card-sub">Share your wallet address with clients. Every payment arrives as USDC, no matter what currency they pay with.</div>
+        
+        <div id="receive-wallet-balance" style="background: var(--surface2); padding: 14px; border-radius: 12px; border: 1px solid var(--border); margin-bottom: 18px; text-align: center;">
+            <div style="font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 1px;">Live Wallet Balances</div>
+            <div style="font-family:'JetBrains Mono',monospace; font-size: 20px; font-weight: 700; color: var(--accent); margin-top: 6px;" id="usdc-balance">—</div>
+            <div style="font-family:'JetBrains Mono',monospace; font-size: 13px; color: var(--muted); margin-top: 4px;" id="eurc-balance">—</div>
+        </div>
+
         <div class="form-group">
             <label>Your Receiving Address</label>
             <input type="text" id="receive-address" readonly placeholder="Connect wallet to see your address" />
         </div>
         <button class="submit-btn" id="copy-address-btn" onclick="copyAddress()" disabled>Connect Wallet First</button>
         <div class="tx-status" id="receive-status"></div>
-    </div>
-    <div class="card">
-        <div class="card-title">💰 Your USDC Balance</div>
-        <div style="text-align:center;padding:20px 0">
-            <div style="font-family:'JetBrains Mono',monospace;font-size:36px;font-weight:700;color:var(--accent)" id="usdc-balance">—</div>
-            <div style="font-size:12px;color:var(--muted);margin-top:4px">Arc USDC</div>
-        </div>
     </div>
 </div>
 
@@ -383,11 +369,12 @@
         "function invoiceCounter() view returns (uint256)"
     ];
     let arcpayContract = null;
-    const USDC_ERC20 = "0x3600000000000000000000000000000000000000"; // Arc Testnet USDC system contract
+    
+    // System & token contracts on Arc Testnet
+    const USDC_ERC20 = "0x3600000000000000000000000000000000000000"; 
     const EURC_ADDRESS = "0x89B50855Aa3bE2F677cD6303Cec089B5F319D72a";
+    const DEX_ROUTER_ADDRESS = "0x284C5Afc100ad14a458255075324fA0A9dfd66b1"; // GojoSwap Router Address
 
-    // ── UNISWAP V2 ROUTER INTEGRATION ───────────────────────────────────
-    const DEX_ROUTER_ADDRESS = "0x534B2EbAF69bE1e06277D6F8fF4125f1591bc7A1"; 
     const DEX_ROUTER_ABI = [
         "function swapExactTokensForTokens(uint amountIn, uint amountOutMin, address[] calldata path, address to, uint deadline) external returns (uint[] memory amounts)",
         "function getAmountsOut(uint amountIn, address[] calldata path) external view returns (uint[] memory amounts)"
@@ -402,9 +389,10 @@
         "function allowance(address owner, address spender) view returns (uint256)"
     ];
 
-    let provider, signer, userAddress;
+    let provider = null;
+    let signer = null;
+    let userAddress = null;
     let selectedPayCurrency = "ETH";
-    let invoices = JSON.parse(localStorage.getItem("arcpay_invoices") || "[]");
     let selectedSlippage = 0.1;
 
     function setTheme(t) {
@@ -425,7 +413,7 @@
         if (page === 'invoices') loadOnChainInvoices();
         if (page === 'swap') {
             estimateRealSwap();
-            loadSwapBalances();
+            loadBalances();
         }
     }
 
@@ -452,7 +440,7 @@
         })();
 
         if (!evmProvider) {
-            alert("No EVM wallet detected.\n\nPlease install:\n• Rabby Wallet\n• MetaMask\n• Coinbase Wallet\n• Any EVM wallet");
+            alert("No EVM wallet detected.\n\nPlease install an EVM compatible browser extension like MetaMask or Rabby.");
             return;
         }
 
@@ -504,8 +492,7 @@
             document.getElementById('copy-address-btn').disabled = false;
             document.getElementById('copy-address-btn').textContent = "Copy Address";
 
-            loadBalances();
-            loadSwapBalances();
+            await loadBalances();
             loadOnChainInvoices();
 
         } catch(err) {
@@ -539,36 +526,44 @@
         document.getElementById('copy-address-btn').textContent = "Connect Wallet First";
 
         document.getElementById('usdc-balance').textContent = "—";
+        document.getElementById('eurc-balance').textContent = "—";
         document.getElementById('swap-from-balance').textContent = "—";
+        document.getElementById('swap-to-balance').textContent = "—";
     }
 
+    // ── LIVE ON-CHAIN BALANCE BALANCING ────────────────────────────────
     async function loadBalances() {
         if (!provider || !userAddress) return;
         try {
             const usdcContract = new ethers.Contract(USDC_ERC20, ERC20_ABI, provider);
-            const bal = await usdcContract.balanceOf(userAddress);
-            const decimals = await usdcContract.decimals();
-            document.getElementById('usdc-balance').textContent = `${parseFloat(ethers.formatUnits(bal, decimals)).toFixed(2)} USDC`;
+            const eurcContract = new ethers.Contract(EURC_ADDRESS, ERC20_ABI, provider);
+
+            const [usdcBal, eurcBal, usdcDec, eurcDec] = await Promise.all([
+                usdcContract.balanceOf(userAddress).catch(() => 0n),
+                eurcContract.balanceOf(userAddress).catch(() => 0n),
+                usdcContract.decimals().catch(() => 6),
+                eurcContract.decimals().catch(() => 6)
+            ]);
+
+            const formattedUsdc = parseFloat(ethers.formatUnits(usdcBal, usdcDec)).toFixed(4);
+            const formattedEurc = parseFloat(ethers.formatUnits(eurcBal, eurcDec)).toFixed(4);
+
+            // Update Receive Tab
+            document.getElementById('usdc-balance').textContent = `${formattedUsdc} USDC`;
+            document.getElementById('eurc-balance').textContent = `${formattedEurc} EURC`;
+
+            // Update Swap Tab Contextually
+            const fromToken = document.getElementById('swap-from-token').value;
+            const toToken = document.getElementById('swap-to-token').value;
+
+            document.getElementById('swap-from-balance').textContent = `${fromToken === "USDC" ? formattedUsdc : formattedEurc} ${fromToken}`;
+            document.getElementById('swap-to-balance').textContent = `${toToken === "USDC" ? formattedUsdc : formattedEurc} ${toToken}`;
         } catch(e) {
-            console.warn("USDC Balance failed:", e);
+            console.error("Balance retrieval error: ", e);
         }
     }
 
-    async function loadSwapBalances() {
-        if (!provider || !userAddress) return;
-        try {
-            const tokenSymbol = document.getElementById('swap-from-token').value;
-            const tokenAddress = tokenSymbol === "USDC" ? USDC_ERC20 : EURC_ADDRESS;
-            const tokenContract = new ethers.Contract(tokenAddress, ERC20_ABI, provider);
-            const decimals = await tokenContract.decimals();
-            const bal = await tokenContract.balanceOf(userAddress);
-            document.getElementById('swap-from-balance').textContent = `${parseFloat(ethers.formatUnits(bal, decimals)).toFixed(4)} ${tokenSymbol}`;
-        } catch(e) {
-            document.getElementById('swap-from-balance').textContent = "—";
-        }
-    }
-
-    // ── ESTIMATE UNISWAP RATES ────────────────────────────────────
+    // ── ESTIMATE REAL DEX SWAP RATES ────────────────────────────────────
     async function estimateRealSwap() {
         const amountInput = document.getElementById('swap-from-amount').value.trim();
         const fromTokenSymbol = document.getElementById('swap-from-token').value;
@@ -618,11 +613,11 @@
 
             document.getElementById('swap-route').style.display = 'block';
             document.getElementById('sw-route').textContent = `${fromTokenSymbol} → ${toTokenSymbol}`;
-            document.getElementById('sw-fee').textContent = `Uniswap Protocol Fee (0.30%)`;
+            document.getElementById('sw-fee').textContent = `DEX Protocol Fee (0.30%)`;
             document.getElementById('sw-min').textContent = `${parseFloat(formattedMin).toFixed(4)} ${toTokenSymbol}`;
 
         } catch (err) {
-            console.warn("Uniswap quote calculation failed:", err);
+            console.warn("Quote calculation failed:", err);
             document.getElementById('swap-rate').textContent = "Waiting for liquid market pool...";
             document.getElementById('swap-to-amount').value = '';
             document.getElementById('swap-route').style.display = 'none';
@@ -642,8 +637,12 @@
             fromAmt.value = toAmt.value;
         }
 
+        onSwapTokenChange();
+    }
+
+    function onSwapTokenChange() {
         estimateRealSwap();
-        loadSwapBalances();
+        loadBalances();
     }
 
     function setSlippage(btn) {
@@ -661,7 +660,7 @@
         estimateRealSwap();
     }
 
-    // ── DO UNISWAP SWAP WITH ROBUST TOKEN APPROVALS ─────────────────
+    // ── DO LIVE UNISWAP-STYLE SWAP ─────────────────────────────────────
     async function doSwap() {
         const status = document.getElementById('swap-status');
         const btn = document.getElementById('swap-btn');
@@ -700,7 +699,7 @@
             const toDecimals = await toContract.decimals();
             const amountInWei = ethers.parseUnits(amountInput, fromDecimals);
 
-            // Step 1: Auto-Approval Pipeline (CRITICAL FOR UNISWAP)
+            // Step 1: Auto-Approval Pipeline
             status.textContent = `⏳ Verifying contract allowance for ${fromTokenSymbol}...`;
             const allowance = await fromContract.allowance(userAddress, DEX_ROUTER_ADDRESS);
 
@@ -712,7 +711,7 @@
                 status.textContent = `✅ Spend limit approved! Continuing swap...`;
             }
 
-            // Step 2: Recalculate Slip Output
+            // Step 2: Recalculate Slippage Output
             const path = [fromTokenAddress, toTokenAddress];
             const amountsOut = await routerContract.getAmountsOut(amountInWei, path);
             const expectedOutputWei = amountsOut[1];
@@ -720,7 +719,7 @@
             const slippageMultiplier = 1 - (selectedSlippage / 100);
             const minAmountOutWei = (BigInt(expectedOutputWei) * BigInt(Math.floor(slippageMultiplier * 10000))) / 10000n;
 
-            // Step 3: Call swapExactTokensForTokens
+            // Step 3: Execute Swapping
             status.textContent = `✍ Sign the swap execution in your wallet...`;
             const deadline = Math.floor(Date.now() / 1000) + 60 * 15; // 15 mins
 
@@ -742,8 +741,7 @@
             document.getElementById('swap-to-amount').value = '';
             document.getElementById('swap-route').style.display = 'none';
 
-            loadBalances();
-            loadSwapBalances();
+            await loadBalances();
 
         } catch (err) {
             status.className = 'tx-status error';
@@ -785,7 +783,7 @@
             document.getElementById('pay-amount').value = "";
             document.getElementById('pay-recipient').value = "";
             document.getElementById('pay-memo').value = "";
-            loadBalances();
+            await loadBalances();
         } catch(e) {
             status.className = "tx-status error";
             status.textContent = "⚠ Transaction failed: " + (e.reason || e.message);
@@ -812,7 +810,6 @@
         status.textContent = "⏳ Generating invoice on Arc...";
 
         try {
-            const tokenAddress = USDC_ERC20;
             const amountWei = ethers.parseUnits(amount, 18);
             const tx = await arcpayContract.createInvoice(client, amountWei, desc);
             status.textContent = `⏳ Registering invoice on-chain... Tx: ${tx.hash.slice(0,14)}`;
@@ -879,7 +876,7 @@
             const tx = await arcpayContract.releaseInvoice(id);
             await tx.wait();
             loadOnChainInvoices();
-            loadBalances();
+            await loadBalances();
         } catch(e) { alert('Release failed: ' + (e.reason || e.message)); }
     }
 
