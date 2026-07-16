@@ -190,7 +190,6 @@
     <button class="btn btn-outline" id="tab-invoices" onclick="switchPage('invoices')">🧾 Invoices</button>
 </div>
 
-<!-- HOME -->
 <div class="page active container" id="page-home">
     <div class="hero">
         <div class="hero-badge"><span class="dot"></span>Built on Arc Network · USDC Native</div>
@@ -214,7 +213,6 @@
     </div>
 </div>
 
-<!-- PAY -->
 <div class="page container" id="page-pay">
     <div class="card">
         <div class="card-title">💸 Pay a Freelancer</div>
@@ -251,7 +249,6 @@
     </div>
 </div>
 
-<!-- SWAP (UPGRADED) -->
 <div class="page container" id="page-swap">
     <div class="card">
         <div class="card-title">🔄 Swap USDC ⇄ EURC</div>
@@ -290,7 +287,6 @@
             </div>
         </div>
 
-        <!-- SWAP ROUTE DETAILS -->
         <div class="route-preview" id="swap-route" style="display:none">
             <div class="route-row"><span class="route-label">Swap Route</span><span class="route-value" id="sw-route">—</span></div>
             <div class="route-row"><span class="route-label">Swap Fee</span><span class="route-value" id="sw-fee">—</span></div>
@@ -311,8 +307,8 @@
         <button class="submit-btn" id="swap-btn" onclick="doSwap()" disabled style="margin-top:4px">Connect Wallet to Swap</button>
         <div class="tx-status" id="swap-status"></div>
     </div>
+</div>
 
-<!-- RECEIVE -->
 <div class="page container" id="page-receive">
     <div class="card">
         <div class="card-title">📥 Receive Payments in Arc USDC</div>
@@ -333,7 +329,6 @@
     </div>
 </div>
 
-<!-- INVOICES -->
 <div class="page container" id="page-invoices">
     <div class="card">
         <div class="card-title">🧾 Create Invoice</div>
@@ -826,9 +821,9 @@
     }
 
     // ── LIVE SWAP ON ARC TESTNET ─────────────────────────────────
-    // Arc testnet swap: sends ETH to a swap router address and receives USDC back
-    // Uses a simple on-chain interaction — real swap requires Arc DEX router contract
-
+    // Arc testnet swap: sends assets directly on-chain. Since it is a simulation
+    // until DEX contracts are deployed, it routes the transfer as a self-transaction
+    // so you generate a real block Tx hash without losing your assets!
     async function doSwap() {
         const status = document.getElementById('swap-status');
         const btn = document.getElementById('swap-btn');
@@ -904,7 +899,7 @@
 
         btn.disabled = true;
         status.className = 'tx-status pending';
-        status.textContent = `⏳ Sending ${from} on Arc Testnet...`;
+        status.textContent = `⏳ Sending simulated swap tx for ${from} on Arc Testnet...`;
 
         try {
             const feeData = await provider.getFeeData();
@@ -916,9 +911,9 @@
             let tx, receipt;
 
             if (from === 'USDC') {
-                // USDC is native on Arc — send as native value
+                // USDC is native on Arc — simulated via self-transaction
                 tx = await signer.sendTransaction({
-                    to: CONTRACT_ADDRESS,
+                    to: userAddress,
                     value: ethers.parseEther(amount),
                     gasPrice
                 });
@@ -926,7 +921,7 @@
                 const eurc = new ethers.Contract(EURC_ADDRESS, ERC20_ABI, signer);
                 const decimals = await eurc.decimals().catch(() => 6);
                 tx = await eurc.transfer(
-                    CONTRACT_ADDRESS,
+                    userAddress,
                     ethers.parseUnits(amount, decimals),
                     { gasPrice }
                 );
@@ -936,7 +931,7 @@
             receipt = await tx.wait();
 
             status.className = 'tx-status success';
-            status.textContent = `✅ ${amount} ${from} sent on Arc! ~${received} ${to} · <a href="https://testnet.arcscan.app/tx/${tx.hash}" target="_blank" style="color:var(--arc-green)">View on ArcScan ↗</a> · Block: ${receipt.blockNumber}`;
+            status.textContent = `✅ Simulated swap complete! Sent ${amount} ${from} on Arc · Simulated conversion: ~${received} ${to} · <a href="https://testnet.arcscan.app/tx/${tx.hash}" target="_blank" style="color:var(--arc-green)">View on ArcScan ↗</a> · Block: ${receipt.blockNumber}`;
             document.getElementById('swap-from-amount').value = '';
             document.getElementById('swap-to-amount').value = '';
             document.getElementById('swap-route').style.display = 'none';
