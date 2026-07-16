@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ArcPay | Freelancer Payments in USDC</title>
-    <link rel="icon" type="image/png" href="https://cdn.jsdelivr.net/gh/Perorworld/arc-pay@main/arcpaylogobg.png">
+    <link rel="icon" type="image/png" href="https://cdn.jsdelivr.gh/Perorworld/arc-pay@main/arcpaylogobg.png">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.7.0/ethers.umd.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
     <style>
@@ -386,7 +386,7 @@
     const USDC_ERC20 = "0x3600000000000000000000000000000000000000"; // Arc Testnet USDC system contract
     const EURC_ADDRESS = "0x89B50855Aa3bE2F677cD6303Cec089B5F319D72a";
 
-    // ── LIVE SWAP ROUTER CONFIG ───────────────────────────────────
+    // ── UNISWAP V2 ROUTER INTEGRATION ───────────────────────────────────
     const DEX_ROUTER_ADDRESS = "0x534B2EbAF69bE1e06277D6F8fF4125f1591bc7A1"; 
     const DEX_ROUTER_ABI = [
         "function swapExactTokensForTokens(uint amountIn, uint amountOutMin, address[] calldata path, address to, uint deadline) external returns (uint[] memory amounts)",
@@ -423,7 +423,10 @@
         document.getElementById('page-' + page).classList.add('active');
         document.getElementById('tab-' + page).classList.add('active');
         if (page === 'invoices') loadOnChainInvoices();
-        if (page === 'swap') estimateRealSwap();
+        if (page === 'swap') {
+            estimateRealSwap();
+            loadSwapBalances();
+        }
     }
 
     function selectPayCurrency(cur, el) {
@@ -565,7 +568,7 @@
         }
     }
 
-    // ── ESTIMATE REAL SWAP (With On-Chain Failure Interception) ────────────
+    // ── ESTIMATE UNISWAP RATES ────────────────────────────────────
     async function estimateRealSwap() {
         const amountInput = document.getElementById('swap-from-amount').value.trim();
         const fromTokenSymbol = document.getElementById('swap-from-token').value;
@@ -615,12 +618,12 @@
 
             document.getElementById('swap-route').style.display = 'block';
             document.getElementById('sw-route').textContent = `${fromTokenSymbol} → ${toTokenSymbol}`;
-            document.getElementById('sw-fee').textContent = `DEX Pool Fee (~0.30%)`;
+            document.getElementById('sw-fee').textContent = `Uniswap Protocol Fee (0.30%)`;
             document.getElementById('sw-min').textContent = `${parseFloat(formattedMin).toFixed(4)} ${toTokenSymbol}`;
 
         } catch (err) {
-            console.warn("Quote estimation failed:", err);
-            document.getElementById('swap-rate').textContent = "No active pool reserves found on router.";
+            console.warn("Uniswap quote calculation failed:", err);
+            document.getElementById('swap-rate').textContent = "Waiting for liquid market pool...";
             document.getElementById('swap-to-amount').value = '';
             document.getElementById('swap-route').style.display = 'none';
         }
@@ -658,7 +661,7 @@
         estimateRealSwap();
     }
 
-    // ── DO SWAP (With Robust Error Parsing) ───────────────────────────
+    // ── DO UNISWAP SWAP WITH ROBUST TOKEN APPROVALS ─────────────────
     async function doSwap() {
         const status = document.getElementById('swap-status');
         const btn = document.getElementById('swap-btn');
@@ -668,23 +671,23 @@
 
         if (!amountInput || isNaN(parseFloat(amountInput)) || parseFloat(amountInput) <= 0) {
             status.className = 'tx-status error';
-            status.textContent = '⚠ Enter a valid amount to swap.';
+            status.textContent = '⚠ Enter a valid swap amount.';
             return;
         }
         if (fromTokenSymbol === toTokenSymbol) {
             status.className = 'tx-status error';
-            status.textContent = '⚠ Select different tokens to swap.';
+            status.textContent = '⚠ Cannot swap identical assets.';
             return;
         }
         if (!signer) {
             status.className = 'tx-status error';
-            status.textContent = '⚠ Connect your wallet first.';
+            status.textContent = '⚠ Connect wallet first.';
             return;
         }
 
         btn.disabled = true;
         status.className = 'tx-status pending';
-        status.textContent = '⏳ Preparing swap transaction...';
+        status.textContent = '⏳ Constructing swap pipeline...';
 
         try {
             const fromTokenAddress = fromTokenSymbol === "USDC" ? USDC_ERC20 : EURC_ADDRESS;
@@ -697,35 +700,29 @@
             const toDecimals = await toContract.decimals();
             const amountInWei = ethers.parseUnits(amountInput, fromDecimals);
 
-            // Step A: Auto-Approval Flow
-            status.textContent = `⏳ Verifying your token allowance...`;
-            const currentAllowance = await fromContract.allowance(userAddress, DEX_ROUTER_ADDRESS);
+            // Step 1: Auto-Approval Pipeline (CRITICAL FOR UNISWAP)
+            status.textContent = `⏳ Verifying contract allowance for ${fromTokenSymbol}...`;
+            const allowance = await fromContract.allowance(userAddress, DEX_ROUTER_ADDRESS);
 
-            if (currentAllowance < amountInWei) {
-                status.textContent = `✍ Sign the transaction to approve the DEX Router to spend your ${fromTokenSymbol}...`;
+            if (allowance < amountInWei) {
+                status.textContent = `✍ Approve DEX Router to swap your ${fromTokenSymbol}. Check wallet...`;
                 const approveTx = await fromContract.approve(DEX_ROUTER_ADDRESS, ethers.MaxUint256);
-                status.textContent = `⏳ Approving tokens on-chain...`;
+                status.textContent = `⏳ Approving tokens on Arc Network...`;
                 await approveTx.wait();
-                status.textContent = `✅ Token allowance approved successfully!`;
+                status.textContent = `✅ Spend limit approved! Continuing swap...`;
             }
 
-            // Step B: Fetch Live Swap Quote & Slippage Limits
-            status.textContent = `⏳ Confirming final on-chain pool pricing...`;
+            // Step 2: Recalculate Slip Output
             const path = [fromTokenAddress, toTokenAddress];
-            let amountsOut;
-            try {
-                amountsOut = await routerContract.getAmountsOut(amountInWei, path);
-            } catch (quoteErr) {
-                throw new Error("No active liquidity pool has been initialized for this pair on the DEX Router contract yet.");
-            }
-            
+            const amountsOut = await routerContract.getAmountsOut(amountInWei, path);
             const expectedOutputWei = amountsOut[1];
+            
             const slippageMultiplier = 1 - (selectedSlippage / 100);
             const minAmountOutWei = (BigInt(expectedOutputWei) * BigInt(Math.floor(slippageMultiplier * 10000))) / 10000n;
 
-            // Step C: Execute the DEX Swap
-            status.textContent = `✍ Please sign standard ERC-20 swap confirmation in your wallet...`;
-            const deadline = Math.floor(Date.now() / 1000) + 60 * 20; // 20 minute execution limit
+            // Step 3: Call swapExactTokensForTokens
+            status.textContent = `✍ Sign the swap execution in your wallet...`;
+            const deadline = Math.floor(Date.now() / 1000) + 60 * 15; // 15 mins
 
             const tx = await routerContract.swapExactTokensForTokens(
                 amountInWei,
@@ -735,11 +732,11 @@
                 deadline
             );
 
-            status.textContent = `⏳ Processing transaction on Arc. Tx: ${tx.hash.slice(0, 14)}...`;
-            const receipt = await tx.wait();
+            status.textContent = `⏳ Swapping on-chain. Tx: ${tx.hash.slice(0, 14)}...`;
+            await tx.wait();
 
             status.className = 'tx-status success';
-            status.innerHTML = `✅ Swapped ${amountInput} ${fromTokenSymbol} successfully! <a href="https://testnet.arcscan.app/tx/${tx.hash}" target="_blank" style="color:var(--arc-green)">View on Explorer ↗</a>`;
+            status.innerHTML = `✅ Swapped ${amountInput} ${fromTokenSymbol} to ${toTokenSymbol}! <a href="https://testnet.arcscan.app/tx/${tx.hash}" target="_blank" style="color:var(--arc-green)">View Transaction ↗</a>`;
 
             document.getElementById('swap-from-amount').value = '';
             document.getElementById('swap-to-amount').value = '';
@@ -751,16 +748,7 @@
         } catch (err) {
             status.className = 'tx-status error';
             console.error(err);
-            
-            // Decodes the exact RPC error return data
-            let friendlyError = err.reason || err.message || "Unknown error occurred";
-            if (err.data && typeof err.data === "string") {
-                friendlyError += ` (Contract Reverted: ${err.data})`;
-            } else if (err.info && err.info.error && err.info.error.message) {
-                friendlyError = err.info.error.message;
-            }
-            
-            status.textContent = `⚠ Swap failed: ${friendlyError}`;
+            status.textContent = `⚠ Swap failed: ${err.reason || err.message || "Invalid execution context or insufficient pool reserves."}`;
         } finally {
             btn.disabled = false;
         }
