@@ -1,1 +1,1 @@
-# arcpay
+# payzo
