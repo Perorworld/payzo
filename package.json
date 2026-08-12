@@ -1,0 +1,13 @@
+{
+  "name": "payzo",
+  "private": true,
+  "scripts": {
+    "build": "esbuild web3auth-build/entry.js --bundle --format=iife --outfile=web3auth-bundle.js --platform=browser --define:process.env.NODE_ENV=\"production\""
+  },
+  "dependencies": {
+    "@web3auth/modal": "^9"
+  },
+  "devDependencies": {
+    "esbuild": "^0.24.0"
+  }
+}
